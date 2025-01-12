@@ -12,7 +12,7 @@ from dash.exceptions import PreventUpdate
 import gunicorn
 import xlrd as xlrd
 
-
+pd.options.mode.chained_assignment = None
 pd.options.display.width= None
 pd.options.display.max_columns= None
 pd.set_option('display.max_rows', 3000)
@@ -801,7 +801,6 @@ musselpark_levering_grafiek = px.bar(musselpark_levering_data,
 
 zorgprestaties = zorg_ag.copy()
 
-print(zorgprestaties['PrestatieOmschrijving'].unique())
 
 zorgprestaties['PrestatieOmschrijving'] = zorgprestaties['PrestatieOmschrijving'].str.replace('Farmaceutisch consult bij zorgvraag patient', 'Consult', regex=True)
 zorgprestaties['PrestatieOmschrijving'] = zorgprestaties['PrestatieOmschrijving'].str.replace('Farmaceutische begeleiding i.v.m. ontslag uit het ziekenhuis', 'Ontslag', regex=True)
@@ -871,9 +870,95 @@ consulten_grafiek                                           # grafiek 3
 ontslag_grafiek                                             # grafiek 4
 mbo_grafiek                                                 # grafiek 5
 
+######--- TABBLAD 6: WACHTTIJDEN OVER HET JAAR ---- #############################################################################################
+# we willen weten hoeveel klanten per dag er in de apotheek gemiddeld komen.
+# we willen weten hoe de druk verdeeld is bij alle apotheken over de uren van de dag
+# dit betekend dat we een telling moeten doen van het aantal patienten per uur en per werkdag.
+# vervolgens zullen we deze moeten middelen.
+# we moeten een gemiddelde berekenen van de som van het aantal uren per werkdag.
+
+wacht_ag = klanten_ag.copy()
+
+# maak eerst een uur kolom aan
+wacht_ag['Starttijd'] = wacht_ag['Starttijd'].replace('"','', regex=True)
+wacht_ag['Starttijd'] = pd.to_datetime(wacht_ag['Starttijd'], format='%H:%M:%S')
+wacht_ag['uur'] = wacht_ag['Starttijd'].dt.hour
+wacht_ag['jaar'] = wacht_ag['Datum'].dt.year
+
+# maak daarna een week vd dag kolom aan
+wacht_ag['weekdagnr'] = wacht_ag['Datum'].dt.weekday
+
+# maak labels voor de weekdagen
+conditie_klanten_weekdag = [
+    (wacht_ag['weekdagnr']==0),
+    (wacht_ag['weekdagnr']==1),
+    (wacht_ag['weekdagnr']==2),
+    (wacht_ag['weekdagnr']==3),
+    (wacht_ag['weekdagnr']==4),
+    (wacht_ag['weekdagnr']==5),
+    (wacht_ag['weekdagnr']==6)
+]
+
+waarden_klanten_weekdag = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag']
+
+wacht_ag['weekdag naam'] = np.select(conditie_klanten_weekdag, waarden_klanten_weekdag, default='???')
+
+wacht_jaar_filter = (wacht_ag['jaar']==2024)                # JAARFILTER
+weekdagen = (wacht_ag['weekdagnr']<5)
+
+wacht_ag_werkdagen = wacht_ag.loc[weekdagen & wacht_jaar_filter]
+
+# Nu gaan we tellingen doen
+# Voor de tellingen per uur hebben we nodig hoeveel keer er (bijv) een 8 voorkomt per individuele dag
+# Daarna moeten we dat delen door het aantal dagen in totaal dat voorkomt in het dataframe
+# Bovenstaande moet per apotheek
+# Voor het aantal tellingen per dag per apotheek gaan we nu een groupby doen
+
+# We berekenen per apotheek hoeveel uur-notities er zijn (zijn klanten)
+# Daarna berekenen we over hoeveel dagen deze notities verdeeld moeten worden = ontdubbeling data en tellen
+
+# Het aantal losse dagen berekenen
+aantal_dagen_frame = wacht_ag_werkdagen.drop_duplicates(subset=['Datum'], keep='first')
+
+weekdagen_aantal = aantal_dagen_frame.groupby(by=['weekdag naam'])['weekdag naam'].count().to_frame('aantal dagen').reset_index()
 
 
+aantal_dagen = len(aantal_dagen_frame)
 
+
+telling_wacht_uren = wacht_ag_werkdagen.groupby(by=['apotheek', 'uur'])['uur'].count().to_frame('aantal').reset_index()
+telling_wacht_uren['aantal dagen'] = aantal_dagen
+telling_wacht_uren['klanten per uur (gem)'] = (telling_wacht_uren['aantal']/telling_wacht_uren['aantal dagen']).astype(int)
+
+# maak de grafiek
+klanten_per_uur_grafiek = px.line(telling_wacht_uren, x='uur', y='klanten per uur (gem)', color='apotheek', text='klanten per uur (gem)' , title='GEMIDDELD AANTAL KLANTEN PER UUR')
+
+# Doe nu hetzelfde, maar dan met de weekdagen
+
+telling_klanten_per_weekdag_totaal = wacht_ag_werkdagen.groupby(by=['apotheek', 'weekdagnr' ,'weekdag naam'])['weekdag naam'].count().to_frame('aantal').reset_index()
+
+telling_klanten_per_weekdag_totaal_1 = telling_klanten_per_weekdag_totaal.sort_values(by=['weekdagnr'], ascending=True)
+# merge de dataframes zodat je kan gaan rekenen
+
+telling_klanten_per_weekdag_totaal_merge = telling_klanten_per_weekdag_totaal.merge(weekdagen_aantal[['weekdag naam', 'aantal dagen']],
+                                         how='left',
+                                         left_on='weekdag naam',
+                                         right_on='weekdag naam')
+
+telling_klanten_per_weekdag_totaal_merge['gem klanten per werkdag'] = (telling_klanten_per_weekdag_totaal_merge['aantal']/telling_klanten_per_weekdag_totaal_merge['aantal dagen']).astype(int)
+
+
+klanten_per_werdag_grafiek = px.line(telling_klanten_per_weekdag_totaal_merge, x='weekdag naam', y='gem klanten per werkdag', color='apotheek', title='GEMIDDELD AANTAL KLANTEN PER WERKDAG', text='gem klanten per werkdag')
+
+
+# overzicht grafieken voor benchmark
+
+klanten_per_werdag_grafiek                  # grafiek met gemiddeld aantal klanten per werkdag
+klanten_per_uur_grafiek                     # grafiek met gemiddeld aantal klanten per uur per werkdag
+
+
+# klanten_per_uur_grafiek.show()
+# klanten_per_werdag_grafiek.show()
 
 # APP
 
@@ -953,8 +1038,15 @@ app.layout = dbc.Container([
             dbc.Row([dcc.Graph(id='ontslag ag')]),
             dbc.Row([dcc.Graph(id='MBO ag')])
         ]),
-        dcc.Tab(label='Service-graad EU verstrekkingen', children=[]),
-        dcc.Tab(label='Klanten aan de balie', children=[])
+        dcc.Tab(label='Klanten aan de balie', children=[
+            dbc.Row([html.H1('Klanten aan de balie AG')]),
+            dbc.Row([dcc.Dropdown(id='jaar klanten',
+                                  options=wacht_ag['jaar'].unique(),
+                                  value=wacht_ag['jaar'].max())]),
+            dbc.Row([dcc.Graph(id='klanten per werkdag')]),
+            dbc.Row([dcc.Graph(id='klanten per uur')])
+        ]),
+        dcc.Tab(label='Service Graad verstrekkingen', children=[])
     ])
 ])
 
@@ -1651,7 +1743,101 @@ def zorg_prestaties(jaar):
 
     return zorg_telling_ag, zorg_omzet_ag, consulten_grafiek, ontslag_grafiek, mbo_grafiek
 
+# TABBLAD 5: Callback voor overzicht klanten aan de balie
 
+@callback(
+    Output('klanten per werkdag', 'figure'),
+    Output('klanten per uur', 'figure'),
+    Input('jaar klanten', 'value')
+)
+
+def klanten_balie(jaar):
+    wacht_ag = klanten_ag.copy()
+
+    # maak eerst een uur kolom aan
+    wacht_ag['Starttijd'] = wacht_ag['Starttijd'].replace('"', '', regex=True)
+    wacht_ag['Starttijd'] = pd.to_datetime(wacht_ag['Starttijd'], format='%H:%M:%S')
+    wacht_ag['uur'] = wacht_ag['Starttijd'].dt.hour
+    wacht_ag['jaar'] = wacht_ag['Datum'].dt.year
+
+    # maak daarna een week vd dag kolom aan
+    wacht_ag['weekdagnr'] = wacht_ag['Datum'].dt.weekday
+
+    # maak labels voor de weekdagen
+    conditie_klanten_weekdag = [
+        (wacht_ag['weekdagnr'] == 0),
+        (wacht_ag['weekdagnr'] == 1),
+        (wacht_ag['weekdagnr'] == 2),
+        (wacht_ag['weekdagnr'] == 3),
+        (wacht_ag['weekdagnr'] == 4),
+        (wacht_ag['weekdagnr'] == 5),
+        (wacht_ag['weekdagnr'] == 6)
+    ]
+
+    waarden_klanten_weekdag = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag']
+
+    wacht_ag['weekdag naam'] = np.select(conditie_klanten_weekdag, waarden_klanten_weekdag, default='???')
+
+    wacht_jaar_filter = (wacht_ag['jaar'] == jaar)  # JAARFILTER
+    weekdagen = (wacht_ag['weekdagnr'] < 5)
+
+    wacht_ag_werkdagen = wacht_ag.loc[weekdagen & wacht_jaar_filter]
+
+    # Nu gaan we tellingen doen
+    # Voor de tellingen per uur hebben we nodig hoeveel keer er (bijv) een 8 voorkomt per individuele dag
+    # Daarna moeten we dat delen door het aantal dagen in totaal dat voorkomt in het dataframe
+    # Bovenstaande moet per apotheek
+    # Voor het aantal tellingen per dag per apotheek gaan we nu een groupby doen
+
+    # We berekenen per apotheek hoeveel uur-notities er zijn (zijn klanten)
+    # Daarna berekenen we over hoeveel dagen deze notities verdeeld moeten worden = ontdubbeling data en tellen
+
+    # Het aantal losse dagen berekenen
+    aantal_dagen_frame = wacht_ag_werkdagen.drop_duplicates(subset=['Datum'], keep='first')
+
+    weekdagen_aantal = aantal_dagen_frame.groupby(by=['weekdag naam'])['weekdag naam'].count().to_frame(
+        'aantal dagen').reset_index()
+
+    aantal_dagen = len(aantal_dagen_frame)
+
+    telling_wacht_uren = wacht_ag_werkdagen.groupby(by=['apotheek', 'uur'])['uur'].count().to_frame(
+        'aantal').reset_index()
+    telling_wacht_uren['aantal dagen'] = aantal_dagen
+    telling_wacht_uren['klanten per uur (gem)'] = (
+                telling_wacht_uren['aantal'] / telling_wacht_uren['aantal dagen']).astype(int)
+
+    # maak de grafiek
+    klanten_per_uur_grafiek = px.line(telling_wacht_uren, x='uur', y='klanten per uur (gem)', color='apotheek',
+                                      text='klanten per uur (gem)', title='GEMIDDELD AANTAL KLANTEN PER UUR')
+
+    # Doe nu hetzelfde, maar dan met de weekdagen
+
+    telling_klanten_per_weekdag_totaal = wacht_ag_werkdagen.groupby(by=['apotheek', 'weekdagnr', 'weekdag naam'])[
+        'weekdag naam'].count().to_frame('aantal').reset_index()
+
+    telling_klanten_per_weekdag_totaal_1 = telling_klanten_per_weekdag_totaal.sort_values(by=['weekdagnr'],
+                                                                                          ascending=True)
+    # merge de dataframes zodat je kan gaan rekenen
+
+    telling_klanten_per_weekdag_totaal_merge = telling_klanten_per_weekdag_totaal.merge(
+        weekdagen_aantal[['weekdag naam', 'aantal dagen']],
+        how='left',
+        left_on='weekdag naam',
+        right_on='weekdag naam')
+
+    telling_klanten_per_weekdag_totaal_merge['gem klanten per werkdag'] = (
+                telling_klanten_per_weekdag_totaal_merge['aantal'] / telling_klanten_per_weekdag_totaal_merge[
+            'aantal dagen']).astype(int)
+
+    klanten_per_werdag_grafiek = px.line(telling_klanten_per_weekdag_totaal_merge, x='weekdag naam',
+                                         y='gem klanten per werkdag', color='apotheek',
+                                         title='GEMIDDELD AANTAL KLANTEN PER WERKDAG', text='gem klanten per werkdag')
+
+    # overzicht grafieken voor benchmark
+
+
+
+    return klanten_per_werdag_grafiek, klanten_per_uur_grafiek
 
 if __name__ == '__main__':
     app.run(debug=True)
