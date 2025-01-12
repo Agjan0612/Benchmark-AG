@@ -199,6 +199,12 @@ musselpark_zorg['apotheek'] = 'musselpark'
 
 zorg_ag = pd.concat([hanzeplein_zorg, oosterpoort_zorg, helpman_zorg, wiljes_zorg, oosterhaar_zorg, musselpark_zorg])
 
+# TELEFONIE VIA HTML FREMA DATAFRAME
+# let op! Dit is een extractie van de database van FREMA die al verwerkt is als een samenvatting. Later in het jaar moet je de html bestanden nog kunnen inlezen en verwerken op verschillende manieren
+
+telefonie_ag = pd.read_excel('Telefoon ag.xlsx')
+telefonie_ag['telefoon per dag (gem)'] = telefonie_ag['telefoon per dag (gem)'].astype(int)
+
 
 
 
@@ -210,6 +216,7 @@ assortiment_ag                  # Dit is het assortiment van alle AG Apotheken
 recept_ag                       # Dit is de receptverwerking van alle AG Apotheken
 klanten_ag                      # Dit is de q-manager date van patiënten die zich aan de balie van de apotheek melden
 zorg_ag                         # Dit is daglijst van de gedeclareerde prestaties voor alle apotheken via CGM
+telefonie_ag                    # Dit is het extract van het html bestand zoals aangeleverd door FREMA over het jaar 2024
 
 ##################################----EINDE DATA INLADEN APOTHEKEN------##################################################################################################
 
@@ -960,6 +967,20 @@ klanten_per_uur_grafiek                     # grafiek met gemiddeld aantal klant
 # klanten_per_uur_grafiek.show()
 # klanten_per_werdag_grafiek.show()
 
+######--- TABBLAD 7: TELEFONIE OVER HET JAAR ---- #############################################################################################
+
+telefoon = telefonie_ag.copy()
+
+# dataframe is klaar.. maak een grafiek
+jaar_filter_telefoon = (telefoon['jaar'] == 2024)
+
+telefoon_1 = telefoon.loc[jaar_filter_telefoon]
+
+telefoon_grafiek = px.bar(telefoon_1, x='Apotheek', y='telefoon per dag (gem)', text_auto=True, title='AANTAL BINNENKOMENDE TELEFOONTJES PER DAG (GEM) PER APOTHEEK')
+
+
+
+
 # APP
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -1045,6 +1066,12 @@ app.layout = dbc.Container([
                                   value=wacht_ag['jaar'].max())]),
             dbc.Row([dcc.Graph(id='klanten per werkdag')]),
             dbc.Row([dcc.Graph(id='klanten per uur')])
+        ]),
+        dcc.Tab(label='Telefonie AG', children=[
+            dbc.Row([html.H1('Inkomende telefoon per apotheek')]),
+            dbc.Row([dcc.Dropdown(id='jaar telefonie',
+                                  options=telefoon['jaar'].unique(), value=telefoon['jaar'].max())]),
+            dbc.Row([dcc.Graph(id='inkomende telefoon')]),
         ]),
         dcc.Tab(label='Service Graad verstrekkingen', children=[])
     ])
@@ -1206,7 +1233,7 @@ def contact(jaar):
     # laat alleen meting zien van mensen zonder contactgegevens
     geen_contact_def = geen_contact_merge.loc[alleen_patiënten_zonder_contactgegevens]
     # maak hiervan een bar-chart
-    contact_grafiek_1 = px.bar(geen_contact_def, x='apotheek', y='% geen contactgegevens', text_auto=True)
+    contact_grafiek_1 = px.bar(geen_contact_def, x='apotheek', y='% geen contactgegevens', text_auto=True, title='GEEN CONTACTGEGEVENS AANWEZIG (%)')
 
     ###### GEEN CONTACTGEGEVENS EINDE #########
 
@@ -1234,7 +1261,7 @@ def contact(jaar):
     # pas filter toe
     email_afwezig = email_afwezig_merge.loc[alleen_patienten_zonder_email]
 
-    contact_grafiek_2 = px.bar(email_afwezig, x='apotheek', y='% geen email aanwezig', text_auto=True)
+    contact_grafiek_2 = px.bar(email_afwezig, x='apotheek', y='% geen email aanwezig', text_auto=True, title='GEEN EMAIL AANWEZIG (%)')
 
     ###### GEEN EMAILADRESSEN EINDE ###########
 
@@ -1260,7 +1287,7 @@ def contact(jaar):
     mobiel_afwezig = mobiel_afwezig_merge.loc[alleen_patienten_zonder_mobiel_nummer]
 
     # maak een grafiek
-    contact_grafiek_3 = px.bar(mobiel_afwezig, x='apotheek', y='% zonder mobiel nummer', text_auto=True)
+    contact_grafiek_3 = px.bar(mobiel_afwezig, x='apotheek', y='% zonder mobiel nummer', text_auto=True, title='GEEN MOBIEL NUMMER AANWEZIG (%)')
 
     return contact_grafiek_1, contact_grafiek_2, contact_grafiek_3
 
@@ -1743,7 +1770,7 @@ def zorg_prestaties(jaar):
 
     return zorg_telling_ag, zorg_omzet_ag, consulten_grafiek, ontslag_grafiek, mbo_grafiek
 
-# TABBLAD 5: Callback voor overzicht klanten aan de balie
+# TABBLAD 6: Callback voor overzicht klanten aan de balie
 
 @callback(
     Output('klanten per werkdag', 'figure'),
@@ -1838,6 +1865,24 @@ def klanten_balie(jaar):
 
 
     return klanten_per_werdag_grafiek, klanten_per_uur_grafiek
+
+# TABBLAD 7: Callback voor overzicht telefonie
+
+@callback(
+    Output('inkomende telefoon', 'figure'),
+    Input('jaar telefonie', 'value')
+)
+def telefonie(jaar):
+    telefoon = telefonie_ag.copy()
+
+    # dataframe is klaar.. maak een grafiek
+    jaar_filter_telefoon = (telefoon['jaar'] == jaar)
+
+    telefoon_1 = telefoon.loc[jaar_filter_telefoon]
+
+    telefoon_grafiek = px.bar(telefoon_1, x='Apotheek', y='telefoon per dag (gem)', text_auto=True,
+                              title='AANTAL BINNENKOMENDE TELEFOONTJES PER DAG (GEM) PER APOTHEEK')
+    return telefoon_grafiek
 
 if __name__ == '__main__':
     app.run(debug=True)
