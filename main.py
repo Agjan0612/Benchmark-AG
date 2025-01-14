@@ -979,6 +979,115 @@ telefoon_1 = telefoon.loc[jaar_filter_telefoon]
 telefoon_grafiek = px.bar(telefoon_1, x='Apotheek', y='telefoon per dag (gem)', text_auto=True, title='AANTAL BINNENKOMENDE TELEFOONTJES PER DAG (GEM) PER APOTHEEK')
 
 
+######--- TABBLAD 7: SERVICEGRAAD OVER HET JAAR ---- #############################################################################################
+
+service = recept_ag.copy()
+
+
+service_1 = service[['ddDatumRecept', 'ReceptHerkomst', 'cf',
+       'ndReceptnummer', 'sdATCODE', 'ndATKODE', 'sdEtiketNaam',
+                     'ndAantal', 'Uitgifte', 'ndVoorraadTotaal',
+                     'apotheek', 'sdMedewerkerCode']]
+
+# kolommen aanmaken voor maand en jaar
+service_1['ddDatumRecept'] = pd.to_datetime(service_1['ddDatumRecept'])
+service_1['jaar'] = service_1['ddDatumRecept'].dt.year
+service_1['maand'] = service_1['ddDatumRecept'].dt.month
+
+# kolom maken voor markering door voorraad 0
+
+service_1['voorraad na aanschrijven'] = service_1['ndVoorraadTotaal'] - service_1['ndAantal']
+
+# Markeer iedere regel als defectuur of voorraad toereikend
+
+conditie_service = [
+    service_1['voorraad na aanschrijven'] >=0,
+    service_1['voorraad na aanschrijven'] <0
+]
+
+waarden_service = ['voorraad toereikend', 'defectuur']
+
+service_1['voorraad toereikend?'] = np.select(conditie_service, waarden_service, default='??')
+
+# filter uit het dataframe Dienst, Zorg, Distributie, Herhaalservice ,LSP-recepten, CF-recepten
+
+geen_dienst_service = (service_1['ReceptHerkomst']!='DIENST')
+geen_zorg_service = (service_1['ReceptHerkomst']!='Z')
+geen_distributie_service = (service_1['ReceptHerkomst']!='D')
+geen_LSP_service = (service_1['sdMedewerkerCode']!='LSP')
+geen_cf_service = (service_1['cf']!='J')
+geen_hhs_service = (service_1['ReceptHerkomst']!='H')
+geen_onbekende_voorraad = (service_1['voorraad toereikend?']!='??')
+jaar_filter_service = (service_1['jaar']==2024)                                 # Dit is het filter voor de callback
+
+# Bouw hier een filter in voor: EU, EU & TU, Alles of spoedmedicatie
+filter_callback_optie_1 = (service_1['Uitgifte'] == 'EU')
+filter_callback_optie_2 = ((service_1['Uitgifte'] == 'EU') | (service_1['Uitgifte']=='TU'))
+filter_callback_optie_3 = ((service_1['Uitgifte'] == 'EU') | (service_1['Uitgifte']=='TU') | (service_1['Uitgifte']=='VU'))
+filter_callback_optie_4 = ((service_1['sdATCODE'])=='')
+
+# pas filters toe op het dataframe
+
+service_2 = service_1.loc[geen_dienst_service &
+                          geen_zorg_service &
+                          geen_distributie_service &
+                          geen_LSP_service &
+                          geen_cf_service &
+                          geen_cf_service &
+                          geen_hhs_service &
+                          geen_onbekende_voorraad &
+                          jaar_filter_service & filter_callback_optie_3]
+
+
+
+
+# print(service_2['Uitgifte'].unique())
+
+# Nu tellen we per maand, per apotheek het aantal toereikend voorraad regels
+
+service_tellen_verdeling = service_2.groupby(by=['maand', 'apotheek', 'voorraad toereikend?'])['voorraad toereikend?'].count().to_frame('aantal verdeling').reset_index()
+service_tellen_totaal = service_2.groupby(by=['maand', 'apotheek'])['voorraad toereikend?'].count().to_frame('aantal totaal').reset_index()
+
+service_tellen_merge = service_tellen_verdeling.merge(service_tellen_totaal[['maand','apotheek', 'aantal totaal']],
+                                                      how='left',
+                                                      left_on= ['maand', 'apotheek'],
+                                                      right_on = ['maand', 'apotheek'])
+
+service_tellen_merge['%'] = ((service_tellen_merge['aantal verdeling']/service_tellen_merge['aantal totaal'])* 100).astype(int)
+
+voorraad_toereikend = (service_tellen_merge['voorraad toereikend?']=='voorraad toereikend')
+
+servicegraad = service_tellen_merge.loc[voorraad_toereikend]
+
+servicegraad_grafiek = px.line(servicegraad, x='maand', y='%', color='apotheek', text='%' ,title='SERVICEGRAAD PER MAAND AG')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # APP
@@ -1073,7 +1182,20 @@ app.layout = dbc.Container([
                                   options=telefoon['jaar'].unique(), value=telefoon['jaar'].max())]),
             dbc.Row([dcc.Graph(id='inkomende telefoon')]),
         ]),
-        dcc.Tab(label='Service Graad verstrekkingen', children=[])
+        dcc.Tab(label='Service Graad verstrekkingen', children=[
+            dbc.Row([html.H1('Servicegraad verstrekkingen AG')]),
+            dbc.Row([
+                dbc.Col([dcc.Dropdown(id='servicegraad jaar', options=service_1['jaar'].unique(), value=service_1['jaar'].max())]),
+                dbc.Col([dcc.RadioItems(id='servicegraad type verstrekkingen',
+                                        options=['EU', 'EU & TU', 'EU/TU/VU'],
+                                        value='EU',
+                                        inline=True,
+                                        inputStyle ={'margin-left':'10px', 'margin-right':'10px'})], width=9)
+            ]),
+            dbc.Row([dcc.Graph(id='servicegraad ag')]),
+            dbc.Row([]),
+            dbc.Row([])
+        ])
     ])
 ])
 
@@ -1883,6 +2005,115 @@ def telefonie(jaar):
     telefoon_grafiek = px.bar(telefoon_1, x='Apotheek', y='telefoon per dag (gem)', text_auto=True,
                               title='AANTAL BINNENKOMENDE TELEFOONTJES PER DAG (GEM) PER APOTHEEK')
     return telefoon_grafiek
+
+
+# TABBLAD 8: Callback voor de service graad
+
+@callback(
+    Output('servicegraad ag', 'figure'),
+    Input('servicegraad jaar', 'value'),
+    Input('servicegraad type verstrekkingen', 'value')
+)
+
+def servicegraad(jaar, optie):
+    service = recept_ag.copy()
+
+    service_1 = service[['ddDatumRecept', 'ReceptHerkomst', 'cf',
+                         'ndReceptnummer', 'sdATCODE', 'ndATKODE', 'sdEtiketNaam',
+                         'ndAantal', 'Uitgifte', 'ndVoorraadTotaal',
+                         'apotheek', 'sdMedewerkerCode']]
+
+    # kolommen aanmaken voor maand en jaar
+    service_1['ddDatumRecept'] = pd.to_datetime(service_1['ddDatumRecept'])
+    service_1['jaar'] = service_1['ddDatumRecept'].dt.year
+    service_1['maand'] = service_1['ddDatumRecept'].dt.month
+
+    # kolom maken voor markering door voorraad 0
+
+    service_1['voorraad na aanschrijven'] = service_1['ndVoorraadTotaal'] - service_1['ndAantal']
+
+    # Markeer iedere regel als defectuur of voorraad toereikend
+
+    conditie_service = [
+        service_1['voorraad na aanschrijven'] >= 0,
+        service_1['voorraad na aanschrijven'] < 0
+    ]
+
+    waarden_service = ['voorraad toereikend', 'defectuur']
+
+    service_1['voorraad toereikend?'] = np.select(conditie_service, waarden_service, default='??')
+
+    # filter uit het dataframe Dienst, Zorg, Distributie, Herhaalservice ,LSP-recepten, CF-recepten
+
+    geen_dienst_service = (service_1['ReceptHerkomst'] != 'DIENST')
+    geen_zorg_service = (service_1['ReceptHerkomst'] != 'Z')
+    geen_distributie_service = (service_1['ReceptHerkomst'] != 'D')
+    geen_LSP_service = (service_1['sdMedewerkerCode'] != 'LSP')
+    geen_cf_service = (service_1['cf'] != 'J')
+    geen_hhs_service = (service_1['ReceptHerkomst'] != 'H')
+    geen_onbekende_voorraad = (service_1['voorraad toereikend?'] != '??')
+    jaar_filter_service = (service_1['jaar'] == jaar)  # Dit is het filter voor de callback
+
+    # Bouw hier een filter in voor: EU, EU & TU, Alles of spoedmedicatie
+
+
+
+    EU = (service_1['Uitgifte'] == 'EU')
+    EU_TU = ((service_1['Uitgifte'] == 'EU') | (service_1['Uitgifte'] == 'TU'))
+    EU_TU_VU = ((service_1['Uitgifte'] == 'EU') | (service_1['Uitgifte'] == 'TU') | (service_1['Uitgifte'] == 'VU'))
+
+    if optie == 'EU':
+        filter_callback = EU
+
+    if optie == 'EU & TU':
+        filter_callback = EU_TU
+
+    if optie == 'EU/TU/VU':
+        filter_callback = EU_TU_VU
+
+
+    # pas filters toe op het dataframe
+
+    service_2 = service_1.loc[geen_dienst_service &
+                              geen_zorg_service &
+                              geen_distributie_service &
+                              geen_LSP_service &
+                              geen_cf_service &
+                              geen_cf_service &
+                              geen_hhs_service &
+                              geen_onbekende_voorraad &
+                              jaar_filter_service & filter_callback]
+
+    # print(service_2['Uitgifte'].unique())
+
+    # Nu tellen we per maand, per apotheek het aantal toereikend voorraad regels
+
+    service_tellen_verdeling = service_2.groupby(by=['maand', 'apotheek', 'voorraad toereikend?'])[
+        'voorraad toereikend?'].count().to_frame('aantal verdeling').reset_index()
+    service_tellen_totaal = service_2.groupby(by=['maand', 'apotheek'])['voorraad toereikend?'].count().to_frame(
+        'aantal totaal').reset_index()
+
+    service_tellen_merge = service_tellen_verdeling.merge(service_tellen_totaal[['maand', 'apotheek', 'aantal totaal']],
+                                                          how='left',
+                                                          left_on=['maand', 'apotheek'],
+                                                          right_on=['maand', 'apotheek'])
+
+    service_tellen_merge['%'] = (
+                (service_tellen_merge['aantal verdeling'] / service_tellen_merge['aantal totaal']) * 100).astype(int)
+
+    voorraad_toereikend = (service_tellen_merge['voorraad toereikend?'] == 'voorraad toereikend')
+
+    servicegraad = service_tellen_merge.loc[voorraad_toereikend]
+
+    servicegraad_grafiek = px.line(servicegraad, x='maand', y='%', color='apotheek', text='%',
+                                   title='SERVICEGRAAD PER MAAND AG')
+
+    return servicegraad_grafiek
+
+
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
