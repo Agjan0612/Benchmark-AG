@@ -84,7 +84,7 @@ recept_oosterhaar = pd.read_csv('oosterhaar_recept.txt')
 recept_oosterpoort = pd.read_csv('oosterpoort_recept.txt')
 recept_wiljes = pd.read_csv('wiljes_recept.txt')
 
-recept_kolommen = pd.read_excel('Kolommen receptverwerking.xlsx')
+recept_kolommen = pd.read_excel('kolommen receptverwerking rapport.xlsx')
 columns_recept = recept_kolommen.columns
 
 recept_hanzeplein.columns = columns_recept
