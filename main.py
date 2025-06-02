@@ -22,7 +22,7 @@ pd.set_option('display.max_columns', 3000)
 
 # BUFFER DATAFRAMES
 buffer_musselpark = pd.read_csv('musselpark_buffer.txt')
-buffer_oosterhaar = pd.read_csv('oosterhaar buffer.txt')
+buffer_oosterhaar = pd.read_csv('oosterhaar_buffer.txt')
 buffer_wiljes = pd.read_csv('wiljes_buffer.txt')
 buffer_helpman = pd.read_csv('helpman_buffer.txt')
 buffer_oosterpoort = pd.read_csv('oosterpoort_buffer.txt')
@@ -105,12 +105,12 @@ recept_ag = pd.concat([recept_hanzeplein, recept_helpman, recept_musselpark, rec
 
 # WACHTTIJDEN DATAFRAMES
 
-wacht_hanzeplein = pd.read_excel('2024 wachttijden hanzeplein.xlsx')    # nieuwe stijl
-wacht_oosterpoort = pd.read_excel('2024 wachttijden oosterpoort.xlsx')  # nieuwe stijl
-wacht_oosterhaar = pd.read_excel('2024 wachttijden oosterhaar.xlsx')    # nieuwe stijl
-wacht_helpman = pd.read_excel('2024 wachttijden helpman.xlsx')          # oude stijl
-wacht_wiljes = pd.read_excel('2024 wachttijden wiljes.xlsx')            # oude stijl
-wacht_musselpark = pd.read_excel('2024 wachttijden musselpark.xlsx')    # oude stijl
+wacht_hanzeplein = pd.read_excel('hanzeplein_wacht.xlsx')    # nieuwe stijl
+wacht_oosterpoort = pd.read_excel('oosterpoort_wacht.xlsx')  # nieuwe stijl
+wacht_oosterhaar = pd.read_excel('oosterhaar_wacht.xlsx')    # nieuwe stijl
+wacht_helpman = pd.read_csv('helpman_wacht.csv')          # oude stijl
+wacht_wiljes = pd.read_csv('wiljes_wacht.csv')            # oude stijl
+wacht_musselpark = pd.read_csv('musselpark_wacht.csv')    # oude stijl
 
 
 # kolommmen oude stijl inrichten: 1: splitsen en hernoemen; 2: drop oorspronkelijk frame
@@ -261,13 +261,14 @@ SA_merge = aantal_SA_verdeling.merge(aantal_SA_totaal[['jaar', 'maand', 'apothee
 SA_merge['% SA APP BESTELLINGEN'] = ((SA_merge['bestellingen per maand']/SA_merge['totaal per maand'])*100).astype(int)
 geen_gewone_recepten = (SA_merge['SA APP?']!='Recept/LS-recept')
 
-jaar_filter = (SA_merge['jaar']==2024)
+jaar_filter = (SA_merge['jaar']==2025)
 
 SA_merge_1 = SA_merge.loc[geen_gewone_recepten & jaar_filter]
 
 # maak er een plot van
 
 SA_plot = px.line(SA_merge_1, x='maand', y= '% SA APP BESTELLINGEN', color='apotheek', text='% SA APP BESTELLINGEN', title='% BESTELLINGEN VIA DE SERVICE APOTHEEK APP IN DE RECEPTBUFFER')
+
 
 
 ######--- TABBLAD 2: CONTACTGEGEVENS CLIENTEN IN KAART ---- #############################################################################################
@@ -1254,6 +1255,8 @@ def sa_app_gebruik(jaar):
 
     SA_plot = px.line(SA_merge_1, x='maand', y='% SA APP BESTELLINGEN', color='apotheek', text='% SA APP BESTELLINGEN',
                       title='% BESTELLINGEN VIA DE SERVICE APOTHEEK APP IN DE RECEPTBUFFER')
+    SA_plot.update_xaxes(tickvals=SA_merge_1['maand'])
+
 
     return SA_plot
 
@@ -1450,7 +1453,7 @@ def HHS(jaar):
 
     # Filter op basis van het jaar
     # jaar filter
-    jaar_filter_HHS = (HHS_AG_1['jaar'] == 2024)
+    jaar_filter_HHS = (HHS_AG_1['jaar'] == jaar)
 
     # pas het filter toe
     HHS_AG_2 = HHS_AG_1.loc[jaar_filter_HHS]
@@ -1508,6 +1511,7 @@ def HHS(jaar):
     # maak een grafiek
     HHS_grafiek = px.line(HHS_merge_1, x='maand', y='% Herhaalservice', color='apotheek', text='% Herhaalservice',
                           title='% HERHAALSERVICE TOV OVERIGE RECEPTUUR PER APOTHEEK (excl distributie)')
+    HHS_grafiek.update_xaxes(tickvals=HHS_merge_1['maand'])
 
     return HHS_grafiek
 
@@ -1717,7 +1721,7 @@ def leveringen_verdeling_ag(jaar):
         geen_zorg_levering & geen_dienst_levering & geen_LSP_levering & geen_distributie_levering]
 
     # gooi hier het jaarfilter overheen
-    jaar_filter_levering = (levering_4['jaar'] == 2024)  # FILTER VOOR HET JAAR
+    jaar_filter_levering = (levering_4['jaar'] == jaar)  # FILTER VOOR HET JAAR
 
     levering_5 = levering_4.loc[jaar_filter_levering]
 
@@ -1756,6 +1760,7 @@ def leveringen_verdeling_ag(jaar):
                                          color='Leverwijze',
                                          text_auto=True,
                                          title='Overzicht verdeling leveringen apotheek Hanzeplein')
+    hanzeplein_levering_grafiek.update_xaxes(tickvals=hanzeplein_levering_data['maand'])
 
     oosterpoort_levering_grafiek = px.bar(oosterpoort_levering_data,
                                           x='maand',
@@ -1763,6 +1768,7 @@ def leveringen_verdeling_ag(jaar):
                                           color='Leverwijze',
                                           text_auto=True,
                                           title='Overzicht verdeling leveringen apotheek Oosterpoort')
+    oosterpoort_levering_grafiek.update_xaxes(tickvals=oosterpoort_levering_data['maand'])
 
     helpman_levering_grafiek = px.bar(helpman_levering_data,
                                       x='maand',
@@ -1770,6 +1776,7 @@ def leveringen_verdeling_ag(jaar):
                                       color='Leverwijze',
                                       text_auto=True,
                                       title='Overzicht verdeling leveringen apotheek Helpman')
+    helpman_levering_grafiek.update_xaxes(tickvals=helpman_levering_data['maand'])
 
     wiljes_levering_grafiek = px.bar(wiljes_levering_data,
                                      x='maand',
@@ -1777,6 +1784,7 @@ def leveringen_verdeling_ag(jaar):
                                      color='Leverwijze',
                                      text_auto=True,
                                      title='Overzicht verdeling leveringen apotheek de Wiljes')
+    wiljes_levering_grafiek.update_xaxes(tickvals=wiljes_levering_data['maand'])
 
     oosterhaar_levering_grafiek = px.bar(oosterhaar_levering_data,
                                          x='maand',
@@ -1784,6 +1792,7 @@ def leveringen_verdeling_ag(jaar):
                                          color='Leverwijze',
                                          text_auto=True,
                                          title='Overzicht verdeling leveringen apotheek Oosterhaar')
+    oosterhaar_levering_grafiek.update_xaxes(tickvals=oosterhaar_levering_data['maand'])
 
     musselpark_levering_grafiek = px.bar(musselpark_levering_data,
                                          x='maand',
@@ -1791,6 +1800,7 @@ def leveringen_verdeling_ag(jaar):
                                          color='Leverwijze',
                                          text_auto=True,
                                          title='Overzicht verdeling leveringen apotheek Musselpark')
+    musselpark_levering_grafiek.update_xaxes(tickvals=musselpark_levering_data['maand'])
 
     return hanzeplein_levering_grafiek, oosterpoort_levering_grafiek, helpman_levering_grafiek, wiljes_levering_grafiek, oosterhaar_levering_grafiek, musselpark_levering_grafiek
 
