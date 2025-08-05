@@ -548,6 +548,31 @@ wil = (levering_1['apotheek']=='wiljes')
 hlp = (levering_1['apotheek']=='helpman')
 op = (levering_1['apotheek']=='oosterpoort')
 hzp = (levering_1['apotheek']=='hanzeplein')
+bot = (levering_1['apotheek']=='boterdiep')
+
+
+
+
+# maak de condities en labels aan voor BOTERDIEP
+bot_levering = levering_1.loc[bot]
+
+
+# hernoem de nan locatie
+bot_levering['RecLocatieCode'] = bot_levering['RecLocatieCode'].replace(np.nan, 'HALEN', regex=True)
+
+# Maak de condities aan
+bot_levering_condities = [
+    bot_levering['RecLocatieCode']=='HALEN',    # HALEN
+    bot_levering['RecLocatieCode']=='PS24',     # PS24
+    bot_levering['RecLocatieCode']=='BEZ'       # BEZORGEN
+]
+
+# Maak de waarden aan
+bot_levering_waarden = ['HALEN', 'KLUIS', 'BEZORGEN']
+
+# Koppel de waarden aan de condities in een nieuwe kolom
+bot_levering['Leverwijze'] = np.select(bot_levering_condities, bot_levering_waarden, default='??')
+
 
 
 
@@ -719,7 +744,9 @@ hzp_levering['Leverwijze'] = np.select(hzp_levering_condities, hzp_levering_waar
 
 # Voeg de levering dataframes samen, zodat je kan gaan filteren en tellen
 
-levering_3 = pd.concat([hzp_levering, op_levering, hlp_levering, wil_levering, oh_levering, mp_levering])
+levering_3 = pd.concat([hzp_levering, op_levering, hlp_levering, wil_levering, oh_levering, mp_levering, bot_levering])
+
+
 
 # nu gaan we de bagger eruit filteren ( zorg, dienst-recepten en LSP-recepten, eventueel ook Distributie-regels)
 
@@ -731,11 +758,14 @@ geen_distributie_levering = (levering_3['ReceptHerkomst']!='D')
 
 levering_4 = levering_3.loc[geen_zorg_levering & geen_dienst_levering & geen_LSP_levering & geen_distributie_levering]
 
+
+
 # gooi hier het jaarfilter overheen
-jaar_filter_levering = (levering_4['jaar']==2024)                       # FILTER VOOR HET JAAR
+jaar_filter_levering = (levering_4['jaar']==2025)                       # FILTER VOOR HET JAAR
 
 levering_5 = levering_4.loc[jaar_filter_levering]
 
+print(levering_5['apotheek'].unique())
 
 # ga nu tellen per maand per apotheek
 
@@ -748,6 +778,8 @@ levering_merge = levering_verdeling.merge(levering_totaal[['maand', 'apotheek', 
                                           right_on=['maand', 'apotheek'])
 levering_merge['%'] = ((levering_merge['aantal verdeling']/levering_merge['aantal totaal'])*100).astype(int)
 
+
+
 # Nu kunnen we voor iedere apotheek een bar graph dataframe maken
 
 hanzeplein_levering_filter = (levering_merge['apotheek']=='hanzeplein')
@@ -756,6 +788,7 @@ helpman_levering_filter = (levering_merge['apotheek']=='helpman')
 wiljes_levering_filter = (levering_merge['apotheek']=='wiljes')
 oosterhaar_levering_filter = (levering_merge['apotheek']=='oosterhaar')
 musselpark_levering_filter = (levering_merge['apotheek']=='musselpark')
+boterdiep_levering_filter = (levering_merge['apotheek']=='boterdiep')
 
 hanzeplein_levering_data = levering_merge.loc[hanzeplein_levering_filter]
 oosterpoort_levering_data = levering_merge.loc[oosterpoort_levering_filter]
@@ -763,6 +796,7 @@ helpman_levering_data = levering_merge.loc[helpman_levering_filter]
 wiljes_levering_data = levering_merge.loc[wiljes_levering_filter]
 oosterhaar_levering_data = levering_merge.loc[oosterhaar_levering_filter]
 musselpark_levering_data = levering_merge.loc[musselpark_levering_filter]
+boterdiep_levering_data = levering_merge.loc[boterdiep_levering_filter]
 
 hanzeplein_levering_grafiek = px.bar(hanzeplein_levering_data,
                                      x='maand',
@@ -805,6 +839,13 @@ musselpark_levering_grafiek = px.bar(musselpark_levering_data,
                                      color='Leverwijze',
                                      text_auto=True,
                                      title='Overzicht verdeling leveringen apotheek Musselpark')
+
+boterdiep_levering_grafiek = px.bar(boterdiep_levering_data,
+                                     x='maand',
+                                     y='%',
+                                     color='Leverwijze',
+                                     text_auto=True,
+                                     title='Overzicht verdeling leveringen apotheek Boterdiep')
 
 ######--- TABBLAD 5: ZORGPRESTATIES OVER HET JAAR ---- #############################################################################################
 
@@ -1078,28 +1119,6 @@ servicegraad_grafiek = px.line(servicegraad, x='maand', y='%', color='apotheek',
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # APP
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -1162,6 +1181,9 @@ app.layout = dbc.Container([
             dbc.Row([
                 dbc.Col([dcc.Graph(id='levering oosterhaar')]),
                 dbc.Col([dcc.Graph(id='levering musselpark')]),
+            ]),
+            dbc.Row([
+                dbc.Col([dcc.Graph(id='levering boterdiep')], width=6)
             ]),
         ]),
 
@@ -1533,6 +1555,7 @@ def HHS(jaar):
     Output('levering wiljes', 'figure'),
     Output('levering oosterhaar', 'figure'),
     Output('levering musselpark', 'figure'),
+    Output('levering boterdiep', 'figure'),
     Input('levering jaar', 'value')
 )
 def leveringen_verdeling_ag(jaar):
@@ -1557,6 +1580,26 @@ def leveringen_verdeling_ag(jaar):
     hlp = (levering_1['apotheek'] == 'helpman')
     op = (levering_1['apotheek'] == 'oosterpoort')
     hzp = (levering_1['apotheek'] == 'hanzeplein')
+    bot = (levering_1['apotheek'] == 'boterdiep')
+
+    # maak de condities en labels aan voor BOTERDIEP
+    bot_levering = levering_1.loc[bot]
+
+    # hernoem de nan locatie
+    bot_levering['RecLocatieCode'] = bot_levering['RecLocatieCode'].replace(np.nan, 'HALEN', regex=True)
+
+    # Maak de condities aan
+    bot_levering_condities = [
+        bot_levering['RecLocatieCode'] == 'HALEN',  # HALEN
+        bot_levering['RecLocatieCode'] == 'PS24',  # PS24
+        bot_levering['RecLocatieCode'] == 'BEZ'  # BEZORGEN
+    ]
+
+    # Maak de waarden aan
+    bot_levering_waarden = ['HALEN', 'KLUIS', 'BEZORGEN']
+
+    # Koppel de waarden aan de condities in een nieuwe kolom
+    bot_levering['Leverwijze'] = np.select(bot_levering_condities, bot_levering_waarden, default='??')
 
     mp_levering = levering_1.loc[mp]
 
@@ -1717,7 +1760,8 @@ def leveringen_verdeling_ag(jaar):
 
     # Voeg de levering dataframes samen, zodat je kan gaan filteren en tellen
 
-    levering_3 = pd.concat([hzp_levering, op_levering, hlp_levering, wil_levering, oh_levering, mp_levering])
+    levering_3 = pd.concat(
+        [hzp_levering, op_levering, hlp_levering, wil_levering, oh_levering, mp_levering, bot_levering])
 
     # nu gaan we de bagger eruit filteren ( zorg, dienst-recepten en LSP-recepten, eventueel ook Distributie-regels)
 
@@ -1733,6 +1777,8 @@ def leveringen_verdeling_ag(jaar):
     jaar_filter_levering = (levering_4['jaar'] == jaar)  # FILTER VOOR HET JAAR
 
     levering_5 = levering_4.loc[jaar_filter_levering]
+
+    print(levering_5['apotheek'].unique())
 
     # ga nu tellen per maand per apotheek
 
@@ -1755,6 +1801,7 @@ def leveringen_verdeling_ag(jaar):
     wiljes_levering_filter = (levering_merge['apotheek'] == 'wiljes')
     oosterhaar_levering_filter = (levering_merge['apotheek'] == 'oosterhaar')
     musselpark_levering_filter = (levering_merge['apotheek'] == 'musselpark')
+    boterdiep_levering_filter = (levering_merge['apotheek'] == 'boterdiep')
 
     hanzeplein_levering_data = levering_merge.loc[hanzeplein_levering_filter]
     oosterpoort_levering_data = levering_merge.loc[oosterpoort_levering_filter]
@@ -1762,6 +1809,7 @@ def leveringen_verdeling_ag(jaar):
     wiljes_levering_data = levering_merge.loc[wiljes_levering_filter]
     oosterhaar_levering_data = levering_merge.loc[oosterhaar_levering_filter]
     musselpark_levering_data = levering_merge.loc[musselpark_levering_filter]
+    boterdiep_levering_data = levering_merge.loc[boterdiep_levering_filter]
 
     hanzeplein_levering_grafiek = px.bar(hanzeplein_levering_data,
                                          x='maand',
@@ -1769,7 +1817,6 @@ def leveringen_verdeling_ag(jaar):
                                          color='Leverwijze',
                                          text_auto=True,
                                          title='Overzicht verdeling leveringen apotheek Hanzeplein')
-    hanzeplein_levering_grafiek.update_xaxes(tickvals=hanzeplein_levering_data['maand'])
 
     oosterpoort_levering_grafiek = px.bar(oosterpoort_levering_data,
                                           x='maand',
@@ -1777,7 +1824,6 @@ def leveringen_verdeling_ag(jaar):
                                           color='Leverwijze',
                                           text_auto=True,
                                           title='Overzicht verdeling leveringen apotheek Oosterpoort')
-    oosterpoort_levering_grafiek.update_xaxes(tickvals=oosterpoort_levering_data['maand'])
 
     helpman_levering_grafiek = px.bar(helpman_levering_data,
                                       x='maand',
@@ -1785,7 +1831,6 @@ def leveringen_verdeling_ag(jaar):
                                       color='Leverwijze',
                                       text_auto=True,
                                       title='Overzicht verdeling leveringen apotheek Helpman')
-    helpman_levering_grafiek.update_xaxes(tickvals=helpman_levering_data['maand'])
 
     wiljes_levering_grafiek = px.bar(wiljes_levering_data,
                                      x='maand',
@@ -1793,7 +1838,6 @@ def leveringen_verdeling_ag(jaar):
                                      color='Leverwijze',
                                      text_auto=True,
                                      title='Overzicht verdeling leveringen apotheek de Wiljes')
-    wiljes_levering_grafiek.update_xaxes(tickvals=wiljes_levering_data['maand'])
 
     oosterhaar_levering_grafiek = px.bar(oosterhaar_levering_data,
                                          x='maand',
@@ -1801,7 +1845,6 @@ def leveringen_verdeling_ag(jaar):
                                          color='Leverwijze',
                                          text_auto=True,
                                          title='Overzicht verdeling leveringen apotheek Oosterhaar')
-    oosterhaar_levering_grafiek.update_xaxes(tickvals=oosterhaar_levering_data['maand'])
 
     musselpark_levering_grafiek = px.bar(musselpark_levering_data,
                                          x='maand',
@@ -1809,9 +1852,15 @@ def leveringen_verdeling_ag(jaar):
                                          color='Leverwijze',
                                          text_auto=True,
                                          title='Overzicht verdeling leveringen apotheek Musselpark')
-    musselpark_levering_grafiek.update_xaxes(tickvals=musselpark_levering_data['maand'])
 
-    return hanzeplein_levering_grafiek, oosterpoort_levering_grafiek, helpman_levering_grafiek, wiljes_levering_grafiek, oosterhaar_levering_grafiek, musselpark_levering_grafiek
+    boterdiep_levering_grafiek = px.bar(boterdiep_levering_data,
+                                        x='maand',
+                                        y='%',
+                                        color='Leverwijze',
+                                        text_auto=True,
+                                        title='Overzicht verdeling leveringen apotheek Boterdiep')
+
+    return hanzeplein_levering_grafiek, oosterpoort_levering_grafiek, helpman_levering_grafiek, wiljes_levering_grafiek, oosterhaar_levering_grafiek, musselpark_levering_grafiek, boterdiep_levering_grafiek
 
 # TABBLAD 5: Callback voor overzicht declaratie zorgprestaties
 @callback(
@@ -2136,8 +2185,6 @@ def servicegraad(jaar, optie):
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
 
 
 
