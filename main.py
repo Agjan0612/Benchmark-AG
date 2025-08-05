@@ -27,6 +27,7 @@ buffer_wiljes = pd.read_csv('wiljes_buffer.txt')
 buffer_helpman = pd.read_csv('helpman_buffer.txt')
 buffer_oosterpoort = pd.read_csv('oosterpoort_buffer.txt')
 buffer_hanzeplein = pd.read_csv('hanzeplein_buffer.txt')
+buffer_boterdiep = pd.read_csv('boterdiep_buffer.txt')
 
 buffer_kolommen = pd.read_excel('kolommen receptbuffer rapport.xlsx')
 columns_buffer = buffer_kolommen.columns
@@ -37,6 +38,7 @@ buffer_musselpark.columns = columns_buffer
 buffer_oosterhaar.columns = columns_buffer
 buffer_oosterpoort.columns = columns_buffer
 buffer_wiljes.columns = columns_buffer
+buffer_boterdiep.columns = columns_buffer
 
 buffer_hanzeplein['apotheek'] = 'hanzeplein'
 buffer_helpman['apotheek'] = 'helpman'
@@ -44,8 +46,9 @@ buffer_wiljes['apotheek'] = 'wiljes'
 buffer_oosterpoort['apotheek'] = 'oosterpoort'
 buffer_oosterhaar['apotheek'] = 'oosterhaar'
 buffer_musselpark['apotheek'] = 'musselpark'
+buffer_boterdiep['apotheek'] = 'boterdiep'
 
-buffer_ag = pd.concat([buffer_hanzeplein, buffer_helpman, buffer_musselpark, buffer_oosterhaar, buffer_oosterpoort, buffer_wiljes])
+buffer_ag = pd.concat([buffer_hanzeplein, buffer_helpman, buffer_musselpark, buffer_oosterhaar, buffer_oosterpoort, buffer_wiljes, buffer_boterdiep])
 
 # ASSORTIMENT DATAFRAMES
 
@@ -55,6 +58,7 @@ assortiment_musselpark = pd.read_csv('musselpark_assortiment.txt', encoding='lat
 assortiment_oosterhaar = pd.read_csv('oosterhaar_assortiment.txt')
 assortiment_oosterpoort = pd.read_csv('oosterpoort_assortiment.txt', encoding='latin-1')
 assortiment_wiljes = pd.read_csv('wiljes_assortiment.txt', encoding='latin-1')
+assortiment_boterdiep = pd.read_csv('boterdiep_assortiment.txt', encoding='latin-1')
 
 assortiment_kolommen = pd.read_excel('Kolommen assortiment.xlsx')
 columns_assortiment = assortiment_kolommen.columns
@@ -65,6 +69,7 @@ assortiment_musselpark.columns = columns_assortiment
 assortiment_oosterhaar.columns = columns_assortiment
 assortiment_oosterpoort.columns = columns_assortiment
 assortiment_wiljes.columns = columns_assortiment
+assortiment_boterdiep.columns = columns_assortiment
 
 assortiment_hanzeplein['apotheek'] = 'hanzeplein'
 assortiment_helpman['apotheek'] = 'helpman'
@@ -72,8 +77,9 @@ assortiment_musselpark['apotheek'] = 'musselpark'
 assortiment_oosterhaar['apotheek'] = 'oosterhaar'
 assortiment_oosterpoort['apotheek'] = 'oosterpoort'
 assortiment_wiljes['apotheek'] = 'wiljes'
+assortiment_boterdiep['apotheek'] = 'boterdiep'
 
-assortiment_ag = pd.concat([assortiment_hanzeplein, assortiment_helpman, assortiment_musselpark, assortiment_oosterhaar, assortiment_oosterpoort, assortiment_wiljes])
+assortiment_ag = pd.concat([assortiment_hanzeplein, assortiment_helpman, assortiment_musselpark, assortiment_oosterhaar, assortiment_oosterpoort, assortiment_wiljes, assortiment_boterdiep])
 
 # RECEPTVERWERKING DATAFRAMES
 
@@ -83,6 +89,7 @@ recept_musselpark = pd.read_csv('musselpark_recept.txt')
 recept_oosterhaar = pd.read_csv('oosterhaar_recept.txt')
 recept_oosterpoort = pd.read_csv('oosterpoort_recept.txt')
 recept_wiljes = pd.read_csv('wiljes_recept.txt')
+recept_boterdiep = pd.read_csv('boterdiep_recept.txt')
 
 recept_kolommen = pd.read_excel('kolommen receptverwerking rapport.xlsx')
 columns_recept = recept_kolommen.columns
@@ -93,6 +100,7 @@ recept_musselpark.columns = columns_recept
 recept_oosterhaar.columns = columns_recept
 recept_oosterpoort.columns = columns_recept
 recept_wiljes.columns = columns_recept
+recept_boterdiep.columns = columns_recept
 
 recept_hanzeplein['apotheek'] = 'hanzeplein'
 recept_helpman['apotheek'] = 'helpman'
@@ -100,8 +108,9 @@ recept_musselpark['apotheek'] = 'musselpark'
 recept_oosterhaar['apotheek'] = 'oosterhaar'
 recept_oosterpoort['apotheek'] = 'oosterpoort'
 recept_wiljes['apotheek'] = 'wiljes'
+recept_boterdiep['apotheek'] = 'boterdiep'
 
-recept_ag = pd.concat([recept_hanzeplein, recept_helpman, recept_musselpark, recept_oosterhaar, recept_oosterpoort, recept_wiljes])
+recept_ag = pd.concat([recept_hanzeplein, recept_helpman, recept_musselpark, recept_oosterhaar, recept_oosterpoort, recept_wiljes, recept_boterdiep])
 
 # WACHTTIJDEN DATAFRAMES
 
